@@ -1,6 +1,6 @@
 const fs = require('fs');
 const bencode = require('bencode');
-const tracker = require('./tracker');
+const tracker = require('./src/tracker');
 
 const torrent = bencode.decode(fs.readFileSync('test.torrent'));
 
