@@ -19,6 +19,7 @@ module.exports.getPeers = (torrent, callback) => {
             announceReq = buildAnnounceReq(connResp.connectionId, torrent);
             udpSend(socket, announceReq, url);
         } else if(respType(response) === 'announce'){
+            console.log(response);
             announceReq = parseAnnounceResp(response);
             callback(announceReq.peers);
         }
@@ -27,7 +28,7 @@ module.exports.getPeers = (torrent, callback) => {
 
 function udpSend(socket, message, rawUrl, callback=()=>{}){
     const url = urlParse(rawUrl);
-    socket.send(message, 0, message.length, url.port, url.host, callback);
+    socket.send(message, 0, message.length, url.port, url.hostname, callback);
 }
 
 /*
@@ -40,7 +41,7 @@ function udpSend(socket, message, rawUrl, callback=()=>{}){
 */
 
 function buildConnReq(){
-    const buf = Buffer.alloc(16);
+    const buf = Buffer.allocUnsafe(16);
     
     buf.writeUInt32BE(0x417, 0);
     buf.writeUInt32BE(0x27101980, 4);
@@ -52,7 +53,9 @@ function buildConnReq(){
 }
 
 function respType(resp){
-
+    const action = resp.readUInt32BE(0);
+    if(action === 0) return 'connect';
+    if(action === 1) return 'announce';
 }
 
 /*  
@@ -66,7 +69,7 @@ function respType(resp){
 function parseConnResp(resp){
     return {
         action: resp.readUInt32BE(0),
-        transactionId: resp.reqdUInt32BE(4),
+        transactionId: resp.readUInt32BE(4),
         connectionId: resp.slice(8)
     }
 }
@@ -97,7 +100,7 @@ function buildAnnounceReq(connId, torrent, port=6882){
     buf.writeUInt32BE(1,8);
     crypto.randomBytes(4).copy(buf,12);
     //info hash
-    torrentParser.info_hash(torrent).copy(buf,16);
+    torrentParser.infoHash(torrent).copy(buf,16);
     util.getId().copy(buf,36);
     Buffer.alloc(8).copy(buf,56);
     //left
@@ -133,7 +136,7 @@ function parseAnnounceResp(res){
         peers: group(res.slice(20), 6).map(address =>{
             return {
                 ip: address.slice(0,4).join('.'),
-                port: address.readUInt32BE(4)
+                port: address.readUInt16BE(4)
             }
         })
     }
